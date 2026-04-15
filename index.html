@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Master Costos VZLA Pro</title>
+    <style>
+        :root {
+            --primary: #2563eb; --success: #059669; --warning: #d97706; --danger: #ef4444;
+            --bg: #f1f5f9; --card: #ffffff; --text: #1e293b;
+        }
+        body { font-family: -apple-system, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 15px; padding-bottom: 60px; }
+        .container { max-width: 500px; margin: auto; }
+        .card { background: var(--card); padding: 18px; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 15px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .input-group { margin-bottom: 12px; }
+        label { display: block; font-size: 0.75rem; margin-bottom: 4px; font-weight: 700; color: #64748b; }
+        input { width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 10px; box-sizing: border-box; font-size: 1rem; }
+        .btn { width: 100%; padding: 14px; border-radius: 10px; font-weight: bold; cursor: pointer; border: none; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 5px; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-update { background: var(--success); color: white; }
+        .btn-backup { background: #64748b; color: white; font-size: 0.8rem; padding: 8px; }
+        
+        /* Alerta de Brecha */
+        .brecha-box { background: #fffbeb; border: 1px solid #fef3c7; padding: 12px; border-radius: 10px; margin-top: 10px; border-left: 4px solid var(--warning); }
+        .brecha-percent { color: #92400e; font-weight: 800; font-size: 1.1rem; }
+        
+        .product-item { background: white; padding: 16px; border-radius: 14px; margin-bottom: 10px; border-left: 6px solid var(--primary); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .price-tag { font-size: 1.5rem; font-weight: 800; color: var(--success); }
+        .actions { display: flex; gap: 8px; margin-top: 10px; }
+        .btn-sm { flex: 1; padding: 8px; font-size: 0.75rem; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; }
+        
+        #toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px); background: #1e293b; color: white; padding: 10px 20px; border-radius: 30px; transition: 0.4s; z-index: 1000; }
+        #toast.show { transform: translateX(-50%) translateY(0); }
+    </style>
+</head>
+<body>
+
+<div id="toast">✅ Acción realizada</div>
+
+<div class="container">
+    <div class="card">
+        <h2 style="margin:0 0 10px 0; font-size: 1rem;">📈 Tasas y Resguardo</h2>
+        <div class="grid">
+            <div class="input-group"><label>BCV (Bs)</label><input type="number" id="tasaBCV" value="47.80" step="0.01" oninput="calcularBrecha()"></div>
+            <div class="input-group"><label>USDT (Bs)</label><input type="number" id="tasaUSDT" value="64.00" step="0.01" oninput="calcularBrecha()"></div>
+        </div>
+        
+        <div class="brecha-box">
+            <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px;">Diferencia de Tasas (Brecha)</div>
+            <div id="displayBrecha" class="brecha-percent">0.00%</div>
+            <div style="font-size: 0.75rem; color: #92400e;">💡 Se suma este % al costo para no perder al recomprar USDT.</div>
+        </div>
+        
+        <button class="btn btn-update" style="margin-top:15px" onclick="actualizarPrecios()">🔄 ACTUALIZAR PRECIOS</button>
+    </div>
+
+    <div class="grid" style="margin-bottom: 15px;">
+        <button class="btn btn-backup" onclick="descargarBackup()">📥 Bajar Respaldo</button>
+        <button class="btn btn-backup" onclick="document.getElementById('fileInput').click()">📤 Subir Respaldo</button>
+        <input type="file" id="fileInput" style="display:none" onchange="subirBackup(event)">
+    </div>
+
+    <div class="card">
+        <h2 id="formTitle" style="margin:0 0 10px 0; font-size: 1rem;">📦 Gestionar Producto</h2>
+        <input type="hidden" id="editId">
+        <input type="text" id="pNombre" placeholder="Nombre (Ej: Gafas Verdes)" style="margin-bottom:10px">
+        <div class="grid">
+            <div class="input-group"><label>Costo (USDT)</label><input type="number" id="pCosto" step="0.01"></div>
+            <div class="input-group"><label>Ganancia (USDT)</label><input type="number" id="pGanancia" step="0.01"></div>
+        </div>
+        <button class="btn btn-primary" id="btnGuardar" onclick="guardarProducto()">💾 Guardar Producto</button>
+        <button id="btnCancel" onclick="limpiarForm()" style="display:none; width:100%; border:none; background:none; color:red; margin-top:10px; font-size:0.8rem">Cancelar</button>
+    </div>
+
+    <div id="listaProductos"></div>
+</div>
+
+<script>
+    let productos = JSON.parse(localStorage.getItem('inventario_v3')) || [];
+
+    function toast(m) { const t = document.getElementById('toast'); t.innerText = m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 2000); }
+
+    function calcularBrecha() {
+        const b = parseFloat(document.getElementById('tasaBCV').value) || 1;
+        const u = parseFloat(document.getElementById('tasaUSDT').value) || 1;
+        const diff = ((u/b) - 1) * 100;
+        document.getElementById('displayBrecha').innerText = diff.toFixed(2) + "%";
+    }
+
+    function actualizarPrecios() { renderizar(); toast("🚀 Precios Actualizados"); }
+
+    function guardarProducto() {
+        const id = document.getElementById('editId').value;
+        const n = document.getElementById('pNombre').value;
+        const c = parseFloat(document.getElementById('pCosto').value);
+        const g = parseFloat(document.getElementById('pGanancia').value);
+
+        if(!n || isNaN(c)) return toast("❌ Error en datos");
+
+        if(id) {
+            const i = productos.findIndex(p => p.id == id);
+            productos[i] = { id: parseInt(id), nombre: n, costo: c, ganancia: g };
+        } else {
+            productos.push({ id: Date.now(), nombre: n, costo: c, ganancia: g });
+        }
+        
+        limpiarForm();
+        save();
+        toast("✅ Guardado");
+    }
+
+    function editar(id) {
+        const p = productos.find(p => p.id === id);
+        document.getElementById('editId').value = p.id;
+        document.getElementById('pNombre').value = p.nombre;
+        document.getElementById('pCosto').value = p.costo;
+        document.getElementById('pGanancia').value = p.ganancia;
+        document.getElementById('btnCancel').style.display = 'block';
+        window.scrollTo(0,0);
+    }
+
+    function borrar(id) { if(confirm("¿Eliminar?")) { productos = productos.filter(p => p.id !== id); save(); } }
+
+    function limpiarForm() { 
+        document.getElementById('editId').value = ''; 
+        document.getElementById('pNombre').value = ''; 
+        document.getElementById('pCosto').value = ''; 
+        document.getElementById('pGanancia').value = '';
+        document.getElementById('btnCancel').style.display = 'none';
+    }
+
+    function save() { localStorage.setItem('inventario_v3', JSON.stringify(productos)); renderizar(); }
+
+    function renderizar() {
+        const b = parseFloat(document.getElementById('tasaBCV').value) || 1;
+        const u = parseFloat(document.getElementById('tasaUSDT').value) || 1;
+        const lista = document.getElementById('listaProductos');
+        lista.innerHTML = '';
+
+        productos.forEach(p => {
+            const precioVenta = ((p.costo * u) + (p.ganancia * u)) / b;
+            lista.innerHTML += `
+                <div class="product-item">
+                    <div style="font-weight:700">${p.nombre}</div>
+                    <div class="price-tag">$ ${precioVenta.toFixed(2)} <small style="font-size:0.7rem">BCV</small></div>
+                    <div style="font-size:0.8rem; color:#64748b">
+                        Cobrar: <b>${(precioVenta * b).toLocaleString('es-VE')} Bs.</b><br>
+                        Inversión: $${p.costo} | Ganas: $${p.ganancia} (USDT)
+                    </div>
+                    <div class="actions">
+                        <button class="btn-sm" style="background:#e2e8f0" onclick="editar(${p.id})">Editar</button>
+                        <button class="btn-sm" style="background:#fee2e2; color:red" onclick="borrar(${p.id})">Borrar</button>
+                    </div>
+                </div>`;
+        });
+    }
+
+    // --- FUNCIONES DE RESPALDO ---
+    function descargarBackup() {
+        const data = JSON.stringify(productos);
+        const blob = new Blob([data], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `respaldo_precios_${new Date().toLocaleDateString()}.json`;
+        a.click();
+        toast("📥 Archivo descargado");
+    }
+
+    function subirBackup(event) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                productos = JSON.parse(e.target.result);
+                save();
+                toast("📤 Respaldo cargado");
+            } catch(err) { toast("❌ Archivo inválido"); }
+        };
+        reader.readAsText(event.target.files[0]);
+    }
+
+    calcularBrecha();
+    renderizar();
+</script>
+
+</body>
+</html>
