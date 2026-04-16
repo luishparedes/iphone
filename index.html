@@ -7,7 +7,7 @@
     <style>
         :root {
             --primary: #2563eb; --success: #059669; --warning: #d97706; --danger: #ef4444;
-            --bg: #f1f5f9; --card: #ffffff; --text: #1e293b;
+            --bg: #f1f5f9; --card: #ffffff; --text: #1e293b; --copy: #0ea5e9;
         }
         body { font-family: -apple-system, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 15px; padding-bottom: 60px; }
         .container { max-width: 500px; margin: auto; }
@@ -21,16 +21,15 @@
         .btn-update { background: var(--success); color: white; }
         .btn-backup { background: #64748b; color: white; font-size: 0.8rem; padding: 8px; }
         
-        /* Alerta de Brecha */
         .brecha-box { background: #fffbeb; border: 1px solid #fef3c7; padding: 12px; border-radius: 10px; margin-top: 10px; border-left: 4px solid var(--warning); }
         .brecha-percent { color: #92400e; font-weight: 800; font-size: 1.1rem; }
         
         .product-item { background: white; padding: 16px; border-radius: 14px; margin-bottom: 10px; border-left: 6px solid var(--primary); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
         .price-tag { font-size: 1.5rem; font-weight: 800; color: var(--success); }
         .actions { display: flex; gap: 8px; margin-top: 10px; }
-        .btn-sm { flex: 1; padding: 8px; font-size: 0.75rem; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; }
+        .btn-sm { flex: 1; padding: 10px; font-size: 0.75rem; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; }
         
-        #toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px); background: #1e293b; color: white; padding: 10px 20px; border-radius: 30px; transition: 0.4s; z-index: 1000; }
+        #toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px); background: #1e293b; color: white; padding: 10px 20px; border-radius: 30px; transition: 0.4s; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
         #toast.show { transform: translateX(-50%) translateY(0); }
     </style>
 </head>
@@ -42,17 +41,17 @@
     <div class="card">
         <h2 style="margin:0 0 10px 0; font-size: 1rem;">📈 Tasas y Resguardo</h2>
         <div class="grid">
-            <div class="input-group"><label>BCV (Bs)</label><input type="number" id="tasaBCV" value="47.80" step="0.01" oninput="calcularBrecha()"></div>
-            <div class="input-group"><label>USDT (Bs)</label><input type="number" id="tasaUSDT" value="64.00" step="0.01" oninput="calcularBrecha()"></div>
+            <div class="input-group"><label>BCV (Bs)</label><input type="number" id="tasaBCV" step="0.01" oninput="actualizarTasasStorage()"></div>
+            <div class="input-group"><label>USDT (Bs)</label><input type="number" id="tasaUSDT" step="0.01" oninput="actualizarTasasStorage()"></div>
         </div>
         
         <div class="brecha-box">
             <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px;">Diferencia de Tasas (Brecha)</div>
             <div id="displayBrecha" class="brecha-percent">0.00%</div>
-            <div style="font-size: 0.75rem; color: #92400e;">💡 Se suma este % al costo para no perder al recomprar USDT.</div>
+            <div style="font-size: 0.75rem; color: #92400e;">💡 Los precios se ajustan según esta brecha automáticamente.</div>
         </div>
         
-        <button class="btn btn-update" style="margin-top:15px" onclick="actualizarPrecios()">🔄 ACTUALIZAR PRECIOS</button>
+        <button class="btn btn-update" style="margin-top:15px" onclick="renderizar(); toast('🚀 Precios Actualizados')">🔄 ACTUALIZAR CÁLCULOS</button>
     </div>
 
     <div class="grid" style="margin-bottom: 15px;">
@@ -64,22 +63,40 @@
     <div class="card">
         <h2 id="formTitle" style="margin:0 0 10px 0; font-size: 1rem;">📦 Gestionar Producto</h2>
         <input type="hidden" id="editId">
-        <input type="text" id="pNombre" placeholder="Nombre (Ej: Gafas Verdes)" style="margin-bottom:10px">
+        <input type="text" id="pNombre" placeholder="Nombre del producto" style="margin-bottom:10px">
         <div class="grid">
             <div class="input-group"><label>Costo (USDT)</label><input type="number" id="pCosto" step="0.01"></div>
             <div class="input-group"><label>Ganancia (USDT)</label><input type="number" id="pGanancia" step="0.01"></div>
         </div>
         <button class="btn btn-primary" id="btnGuardar" onclick="guardarProducto()">💾 Guardar Producto</button>
-        <button id="btnCancel" onclick="limpiarForm()" style="display:none; width:100%; border:none; background:none; color:red; margin-top:10px; font-size:0.8rem">Cancelar</button>
+        <button id="btnCancel" onclick="limpiarForm()" style="display:none; width:100%; border:none; background:none; color:red; margin-top:10px; font-size:0.8rem">Cancelar Edición</button>
     </div>
 
     <div id="listaProductos"></div>
 </div>
 
 <script>
+    // Cargar datos iniciales
     let productos = JSON.parse(localStorage.getItem('inventario_v3')) || [];
+    
+    // Cargar tasas guardadas o poner valores por defecto
+    document.getElementById('tasaBCV').value = localStorage.getItem('tasaBCV') || "47.80";
+    document.getElementById('tasaUSDT').value = localStorage.getItem('tasaUSDT') || "64.00";
 
-    function toast(m) { const t = document.getElementById('toast'); t.innerText = m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 2000); }
+    function toast(m) { 
+        const t = document.getElementById('toast'); 
+        t.innerText = m; 
+        t.classList.add('show'); 
+        setTimeout(()=>t.classList.remove('show'), 2000); 
+    }
+
+    function actualizarTasasStorage() {
+        const b = document.getElementById('tasaBCV').value;
+        const u = document.getElementById('tasaUSDT').value;
+        localStorage.setItem('tasaBCV', b);
+        localStorage.setItem('tasaUSDT', u);
+        calcularBrecha();
+    }
 
     function calcularBrecha() {
         const b = parseFloat(document.getElementById('tasaBCV').value) || 1;
@@ -87,8 +104,6 @@
         const diff = ((u/b) - 1) * 100;
         document.getElementById('displayBrecha').innerText = diff.toFixed(2) + "%";
     }
-
-    function actualizarPrecios() { renderizar(); toast("🚀 Precios Actualizados"); }
 
     function guardarProducto() {
         const id = document.getElementById('editId').value;
@@ -117,10 +132,27 @@
         document.getElementById('pCosto').value = p.costo;
         document.getElementById('pGanancia').value = p.ganancia;
         document.getElementById('btnCancel').style.display = 'block';
-        window.scrollTo(0,0);
+        window.scrollTo({top: 0, behavior: 'smooth'});
     }
 
-    function borrar(id) { if(confirm("¿Eliminar?")) { productos = productos.filter(p => p.id !== id); save(); } }
+    function borrar(id) { if(confirm("¿Eliminar producto?")) { productos = productos.filter(p => p.id !== id); save(); } }
+
+    function copiarPortapapeles(nombre, precioUsd, precioBs) {
+        const texto = `🛍️ *${nombre}*\n💰 Precio: $${precioUsd}\n💵 Pago en Bs: ${precioBs} Bs\n_(Tasa BCV)_`;
+        
+        navigator.clipboard.writeText(texto).then(() => {
+            toast("📋 Copiado para enviar");
+        }).catch(err => {
+            // Fallback para navegadores antiguos
+            const el = document.createElement('textarea');
+            el.value = texto;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            toast("📋 Copiado");
+        });
+    }
 
     function limpiarForm() { 
         document.getElementById('editId').value = ''; 
@@ -139,16 +171,20 @@
         lista.innerHTML = '';
 
         productos.forEach(p => {
-            const precioVenta = ((p.costo * u) + (p.ganancia * u)) / b;
+            const precioVentaUSD = ((p.costo * u) + (p.ganancia * u)) / b;
+            const precioVentaBS = (precioVentaUSD * b).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            
             lista.innerHTML += `
                 <div class="product-item">
-                    <div style="font-weight:700">${p.nombre}</div>
-                    <div class="price-tag">$ ${precioVenta.toFixed(2)} <small style="font-size:0.7rem">BCV</small></div>
-                    <div style="font-size:0.8rem; color:#64748b">
-                        Cobrar: <b>${(precioVenta * b).toLocaleString('es-VE')} Bs.</b><br>
-                        Inversión: $${p.costo} | Ganas: $${p.ganancia} (USDT)
+                    <div style="font-weight:700; font-size: 1.1rem; margin-bottom:4px">${p.nombre}</div>
+                    <div class="price-tag">$ ${precioVentaUSD.toFixed(2)} <small style="font-size:0.7rem; color:#64748b">BCV</small></div>
+                    <div style="font-size:0.9rem; color:#1e293b; margin-top:4px">
+                        Total Bs: <b>${precioVentaBS}</b>
                     </div>
                     <div class="actions">
+                        <button class="btn-sm" style="background:var(--copy); color:white" onclick="copiarPortapapeles('${p.nombre}', '${precioVentaUSD.toFixed(2)}', '${precioVentaBS}')">
+                            📋 Copiar
+                        </button>
                         <button class="btn-sm" style="background:#e2e8f0" onclick="editar(${p.id})">Editar</button>
                         <button class="btn-sm" style="background:#fee2e2; color:red" onclick="borrar(${p.id})">Borrar</button>
                     </div>
@@ -156,7 +192,6 @@
         });
     }
 
-    // --- FUNCIONES DE RESPALDO ---
     function descargarBackup() {
         const data = JSON.stringify(productos);
         const blob = new Blob([data], {type: 'application/json'});
@@ -180,6 +215,7 @@
         reader.readAsText(event.target.files[0]);
     }
 
+    // Inicio
     calcularBrecha();
     renderizar();
 </script>
