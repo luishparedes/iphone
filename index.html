@@ -7,7 +7,7 @@
     <style>
         :root {
             --primary: #2563eb; --success: #059669; --warning: #d97706; --danger: #ef4444;
-            --bg: #f1f5f9; --card: #ffffff; --text: #1e293b; --copy: #0ea5e9;
+            --bg: #f1f5f9; --card: #ffffff; --text: #1e293b; --copy: #0ea5e9; --binance: #F3BA2F;
         }
         body { font-family: -apple-system, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 15px; padding-bottom: 60px; }
         .container { max-width: 500px; margin: auto; }
@@ -18,14 +18,17 @@
         input { width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 10px; box-sizing: border-box; font-size: 1rem; }
         .btn { width: 100%; padding: 14px; border-radius: 10px; font-weight: bold; cursor: pointer; border: none; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 5px; }
         .btn-primary { background: var(--primary); color: white; }
-        .btn-update { background: var(--success); color: white; }
+        .btn-update { background: var(--success); color: white; box-shadow: 0 4px 10px rgba(5, 150, 105, 0.3); }
+        .btn-catalogo { background: #1e293b; color: white; margin-bottom: 15px; border: 2px solid var(--binance); }
         .btn-backup { background: #64748b; color: white; font-size: 0.8rem; padding: 8px; }
         
         .brecha-box { background: #fffbeb; border: 1px solid #fef3c7; padding: 12px; border-radius: 10px; margin-top: 10px; border-left: 4px solid var(--warning); }
         .brecha-percent { color: #92400e; font-weight: 800; font-size: 1.1rem; }
         
-        .product-item { background: white; padding: 16px; border-radius: 14px; margin-bottom: 10px; border-left: 6px solid var(--primary); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .product-item { background: white; padding: 16px; border-radius: 14px; margin-bottom: 10px; border-left: 6px solid var(--primary); box-shadow: 0 2px 4px rgba(0,0,0,0.05); position: relative; }
+        .binance-badge { position: absolute; top: 15px; right: 15px; background: #fff9e6; color: #d97706; padding: 4px 8px; border-radius: 8px; font-size: 0.7rem; font-weight: 800; display: flex; align-items: center; gap: 4px; border: 1px solid #f3ba2f; }
         .price-tag { font-size: 1.5rem; font-weight: 800; color: var(--success); }
+        .binance-price { color: var(--warning); font-weight: 700; font-size: 1rem; display: flex; align-items: center; gap: 5px; margin-top: 2px; }
         .actions { display: flex; gap: 8px; margin-top: 10px; }
         .btn-sm { flex: 1; padding: 10px; font-size: 0.75rem; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; }
         
@@ -39,20 +42,24 @@
 
 <div class="container">
     <div class="card">
-        <h2 style="margin:0 0 10px 0; font-size: 1rem;">📈 Tasas y Resguardo</h2>
+        <h2 style="margin:0 0 10px 0; font-size: 1rem;">📈 Tasas de Cambio</h2>
         <div class="grid">
-            <div class="input-group"><label>BCV (Bs)</label><input type="number" id="tasaBCV" step="0.01" oninput="actualizarTasasStorage()"></div>
-            <div class="input-group"><label>USDT (Bs)</label><input type="number" id="tasaUSDT" step="0.01" oninput="actualizarTasasStorage()"></div>
+            <div class="input-group"><label>BCV (Bs)</label><input type="number" id="tasaBCV" step="0.01"></div>
+            <div class="input-group"><label>USDT (Bs)</label><input type="number" id="tasaUSDT" step="0.01"></div>
         </div>
         
         <div class="brecha-box">
-            <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px;">Diferencia de Tasas (Brecha)</div>
+            <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px;">Brecha Confirmada Actual</div>
             <div id="displayBrecha" class="brecha-percent">0.00%</div>
-            <div style="font-size: 0.75rem; color: #92400e;">💡 Los precios se ajustan según esta brecha automáticamente.</div>
+            <div style="font-size: 0.75rem; color: #92400e;">⚠️ Los cambios solo se aplican al pulsar el botón verde.</div>
         </div>
         
-        <button class="btn btn-update" style="margin-top:15px" onclick="renderizar(); toast('🚀 Precios Actualizados')">🔄 ACTUALIZAR CÁLCULOS</button>
+        <button class="btn btn-update" style="margin-top:15px" onclick="confirmarTasas()">🔄 ACTUALIZAR CÁLCULOS</button>
     </div>
+
+    <button class="btn btn-catalogo" onclick="copiarCatalogo()">
+        📋 COPIAR CATÁLOGO DE PRECIOS
+    </button>
 
     <div class="grid" style="margin-bottom: 15px;">
         <button class="btn btn-backup" onclick="descargarBackup()">📥 Bajar Respaldo</button>
@@ -76,12 +83,16 @@
 </div>
 
 <script>
-    // Cargar datos iniciales
     let productos = JSON.parse(localStorage.getItem('inventario_v3')) || [];
     
-    // Cargar tasas guardadas o poner valores por defecto
-    document.getElementById('tasaBCV').value = localStorage.getItem('tasaBCV') || "47.80";
-    document.getElementById('tasaUSDT').value = localStorage.getItem('tasaUSDT') || "64.00";
+    // Cargar las tasas confirmadas del storage al iniciar
+    function cargarTasasIniciales() {
+        const b = localStorage.getItem('tasaBCV_confirmada') || "47.80";
+        const u = localStorage.getItem('tasaUSDT_confirmada') || "64.00";
+        document.getElementById('tasaBCV').value = b;
+        document.getElementById('tasaUSDT').value = u;
+        actualizarUIBrecha(b, u);
+    }
 
     function toast(m) { 
         const t = document.getElementById('toast'); 
@@ -90,19 +101,23 @@
         setTimeout(()=>t.classList.remove('show'), 2000); 
     }
 
-    function actualizarTasasStorage() {
-        const b = document.getElementById('tasaBCV').value;
-        const u = document.getElementById('tasaUSDT').value;
-        localStorage.setItem('tasaBCV', b);
-        localStorage.setItem('tasaUSDT', u);
-        calcularBrecha();
+    function actualizarUIBrecha(b, u) {
+        const diff = ((parseFloat(u)/parseFloat(b)) - 1) * 100;
+        document.getElementById('displayBrecha').innerText = diff.toFixed(2) + "%";
     }
 
-    function calcularBrecha() {
-        const b = parseFloat(document.getElementById('tasaBCV').value) || 1;
-        const u = parseFloat(document.getElementById('tasaUSDT').value) || 1;
-        const diff = ((u/b) - 1) * 100;
-        document.getElementById('displayBrecha').innerText = diff.toFixed(2) + "%";
+    function confirmarTasas() {
+        const b = document.getElementById('tasaBCV').value;
+        const u = document.getElementById('tasaUSDT').value;
+        
+        if(!b || !u || b <= 0 || u <= 0) return toast("❌ Tasas inválidas");
+
+        localStorage.setItem('tasaBCV_confirmada', b);
+        localStorage.setItem('tasaUSDT_confirmada', u);
+        
+        actualizarUIBrecha(b, u);
+        renderizar();
+        toast("🚀 Precios Actualizados");
     }
 
     function guardarProducto() {
@@ -137,21 +152,37 @@
 
     function borrar(id) { if(confirm("¿Eliminar producto?")) { productos = productos.filter(p => p.id !== id); save(); } }
 
-    function copiarPortapapeles(nombre, precioUsd, precioBs) {
-        const texto = `🛍️ *${nombre}*\n💰 Precio: $${precioUsd}\n💵 Pago en Bs: ${precioBs} Bs\n_(Tasa BCV)_`;
+    function copiarPortapapeles(nombre, precioBinance, precioBcv, precioBs) {
+        const texto = `🛍️ *${nombre}*\n\n💵 *Precio:* $${precioBcv} (BCV)\n🇻🇪 *Total Bs:* ${precioBs}\n\n🔸 *OFERTA BINANCE:* ${precioBinance} USDT\n\n📍 *Ubicación:* Carrera 13 esquina calle 18, Yaritagua.\n📞 *Contacto:* 0412-5278450\n\n_Válido por 12 horas. Consulta existencias._`;
+        navigator.clipboard.writeText(texto).then(() => toast("📋 Copiado"));
+    }
+
+    function copiarCatalogo() {
+        if(productos.length === 0) return toast("⚠️ No hay productos");
+        const b = parseFloat(localStorage.getItem('tasaBCV_confirmada'));
+        const u = parseFloat(localStorage.getItem('tasaUSDT_confirmada'));
+        const brecha = (u/b) - 1;
         
-        navigator.clipboard.writeText(texto).then(() => {
-            toast("📋 Copiado para enviar");
-        }).catch(err => {
-            // Fallback para navegadores antiguos
-            const el = document.createElement('textarea');
-            el.value = texto;
-            document.body.appendChild(el);
-            el.select();
-            document.execCommand('copy');
-            document.body.removeChild(el);
-            toast("📋 Copiado");
+        let texto = `📦 *CATÁLOGO DE PRODUCTOS - ${new Date().toLocaleDateString()}*\n`;
+        texto += `━━━━━━━━━━━━━━━━━━\n\n`;
+
+        productos.forEach(p => {
+            const pVentaBCV = ((p.costo * u) + (p.ganancia * u)) / b;
+            const pVentaBS = (pVentaBCV * b).toLocaleString('es-VE', {minimumFractionDigits: 2});
+            const pVentaBinance = p.costo / (1 - brecha);
+
+            texto += `⭐ *${p.nombre}*\n`;
+            texto += `🔹 Pago Bs: ${pVentaBS} Bs\n`;
+            texto += `🔸 Oferta Binance: ${pVentaBinance.toFixed(2)} USDT\n`;
+            texto += `──────────────────\n`;
         });
+
+        texto += `\n📍 *Dirección:* Yaritagua-Yaracuy, Carrera 13 esq. Calle 18, Padre Torres.\n`;
+        texto += `📞 *WhatsApp:* 04125278450\n\n`;
+        texto += `📦 *SERVICIOS:* Encomienda internacional, recibimos tus paquetes y te asesoramos en compras por internet.\n\n`;
+        texto += `⚠️ *NOTA:* Precios válidos por 12 horas.`;
+
+        navigator.clipboard.writeText(texto).then(() => toast("🚀 Catálogo copiado"));
     }
 
     function limpiarForm() { 
@@ -165,26 +196,30 @@
     function save() { localStorage.setItem('inventario_v3', JSON.stringify(productos)); renderizar(); }
 
     function renderizar() {
-        const b = parseFloat(document.getElementById('tasaBCV').value) || 1;
-        const u = parseFloat(document.getElementById('tasaUSDT').value) || 1;
+        const b = parseFloat(localStorage.getItem('tasaBCV_confirmada')) || 1;
+        const u = parseFloat(localStorage.getItem('tasaUSDT_confirmada')) || 1;
+        const brecha = (u/b) - 1;
+        
         const lista = document.getElementById('listaProductos');
         lista.innerHTML = '';
 
         productos.forEach(p => {
             const precioVentaUSD = ((p.costo * u) + (p.ganancia * u)) / b;
             const precioVentaBS = (precioVentaUSD * b).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            const precioBinance = p.costo / (1 - brecha);
             
             lista.innerHTML += `
                 <div class="product-item">
+                    <div class="binance-badge">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M16.624 13.9202L13.231 17.3124L12.0006 18.5428L10.7702 17.3124L7.37722 13.9202L6.14675 12.6898L4.91628 13.9202L12.0006 21.0045L19.085 13.9202L17.8545 12.6898L16.624 13.9202Z"/><path d="M12.0006 2.99551L4.91628 10.0798L6.14675 11.3103L7.37722 10.0798L10.7702 6.68763L12.0006 5.45716L13.231 6.68763L16.624 10.0798L17.8545 11.3103L19.085 10.0798L12.0006 2.99551Z"/><path d="M7.37722 12L12.0006 7.37661L16.624 12L12.0006 16.6234L7.37722 12Z"/></svg>
+                        Oferta Binance
+                    </div>
                     <div style="font-weight:700; font-size: 1.1rem; margin-bottom:4px">${p.nombre}</div>
                     <div class="price-tag">$ ${precioVentaUSD.toFixed(2)} <small style="font-size:0.7rem; color:#64748b">BCV</small></div>
-                    <div style="font-size:0.9rem; color:#1e293b; margin-top:4px">
-                        Total Bs: <b>${precioVentaBS}</b>
-                    </div>
+                    <div style="font-size:0.95rem; color:#1e293b; margin-top:2px">Total Bs: <b>${precioVentaBS}</b></div>
+                    <div class="binance-price"><span>Binance:</span><b>${precioBinance.toFixed(2)} USDT</b></div>
                     <div class="actions">
-                        <button class="btn-sm" style="background:var(--copy); color:white" onclick="copiarPortapapeles('${p.nombre}', '${precioVentaUSD.toFixed(2)}', '${precioVentaBS}')">
-                            📋 Copiar
-                        </button>
+                        <button class="btn-sm" style="background:var(--copy); color:white" onclick="copiarPortapapeles('${p.nombre}', '${precioBinance.toFixed(2)}', '${precioVentaUSD.toFixed(2)}', '${precioVentaBS}')">📋 Copiar</button>
                         <button class="btn-sm" style="background:#e2e8f0" onclick="editar(${p.id})">Editar</button>
                         <button class="btn-sm" style="background:#fee2e2; color:red" onclick="borrar(${p.id})">Borrar</button>
                     </div>
@@ -200,7 +235,6 @@
         a.href = url;
         a.download = `respaldo_precios_${new Date().toLocaleDateString()}.json`;
         a.click();
-        toast("📥 Archivo descargado");
     }
 
     function subirBackup(event) {
@@ -215,8 +249,8 @@
         reader.readAsText(event.target.files[0]);
     }
 
-    // Inicio
-    calcularBrecha();
+    // Iniciar con tasas guardadas
+    cargarTasasIniciales();
     renderizar();
 </script>
 
