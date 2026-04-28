@@ -127,6 +127,7 @@
         const g = parseFloat(document.getElementById('pGanancia').value);
 
         if(!n || isNaN(c)) return toast("❌ Error en datos");
+        if(isNaN(g)) g = 0;
 
         if(id) {
             const i = productos.findIndex(p => p.id == id);
@@ -161,19 +162,35 @@
         if(productos.length === 0) return toast("⚠️ No hay productos");
         const b = parseFloat(localStorage.getItem('tasaBCV_confirmada'));
         const u = parseFloat(localStorage.getItem('tasaUSDT_confirmada'));
-        const brecha = (u/b) - 1;
         
         let texto = `📦 *CATÁLOGO DE PRODUCTOS - ${new Date().toLocaleDateString()}*\n`;
         texto += `━━━━━━━━━━━━━━━━━━\n\n`;
 
         productos.forEach(p => {
-            const pVentaBCV = ((p.costo * u) + (p.ganancia * u)) / b;
-            const pVentaBS = (pVentaBCV * b).toLocaleString('es-VE', {minimumFractionDigits: 2});
-            const pVentaBinance = p.costo / (1 - brecha);
-
+            // CORRECCIÓN FÓRMULA PRECIO BCV: costo_usdt + (costo_usdt * brecha) + ganancia_usdt + (ganancia_usdt * brecha)
+            // Desglose explicado: El precio en dólares BCV = (costoUSDT * (1 + brecha)) + (gananciaUSDT * (1 + brecha))
+            // Desglose explicado: Pero es más claro como: (costoUSDT + gananciaUSDT) * (1 + brecha)
+            const brechaDecimal = (u / b) - 1;
+            const factorBrecha = (1 + brechaDecimal);
+            
+            // FÓRMULA CORRECTA según especificación:
+            // Precio en dólares BCV = (costo USDT + ganancia USDT) * (1 + brecha)
+            // Esto equivale a: costo_usdt + (costo_usdt * brecha) + ganancia_usdt + (ganancia_usdt * brecha)
+            const precioDolarBCV = (p.costo + p.ganancia) * factorBrecha;
+            
+            // Total en bolívares = Precio dólar BCV * Tasa BCV
+            const totalBolivares = precioDolarBCV * b;
+            
+            // PRECIO BINANCE (Oferta por transferencia): 
+            // Según especificación: costo_usdt + (costo_usdt * brecha)
+            // Es decir: costo_usdt * (1 + brecha)
+            const precioOfertaBinance = p.costo * factorBrecha;
+            
+            const precioVentaBS = totalBolivares.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            
             texto += `⭐ *${p.nombre}*\n`;
-            texto += `🔹 Pago Bs: ${pVentaBS} Bs\n`;
-            texto += `🔸 Oferta Binance: ${pVentaBinance.toFixed(2)} USDT\n`;
+            texto += `🔹 Pago Bs: ${precioVentaBS} Bs\n`;
+            texto += `🔸 Oferta Binance: ${precioOfertaBinance.toFixed(2)} USDT\n`;
             texto += `──────────────────\n`;
         });
 
@@ -198,15 +215,25 @@
     function renderizar() {
         const b = parseFloat(localStorage.getItem('tasaBCV_confirmada')) || 1;
         const u = parseFloat(localStorage.getItem('tasaUSDT_confirmada')) || 1;
-        const brecha = (u/b) - 1;
+        const brechaDecimal = (u / b) - 1;
+        const factorBrecha = (1 + brechaDecimal);
         
         const lista = document.getElementById('listaProductos');
         lista.innerHTML = '';
 
         productos.forEach(p => {
-            const precioVentaUSD = ((p.costo * u) + (p.ganancia * u)) / b;
-            const precioVentaBS = (precioVentaUSD * b).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-            const precioBinance = p.costo / (1 - brecha);
+            // CÁLCULOS CORREGIDOS según especificación:
+            // 1. Precio oferta Binance = costo_usdt + (costo_usdt * brecha) = costo_usdt * (1 + brecha)
+            const precioOfertaBinance = p.costo * factorBrecha;
+            
+            // 2. Precio en dólares BCV = costo_usdt + (costo_usdt * brecha) + ganancia_usdt + (ganancia_usdt * brecha)
+            // Esto simplifica a: (costo_usdt + ganancia_usdt) * (1 + brecha)
+            const precioDolarBCV = (p.costo + p.ganancia) * factorBrecha;
+            
+            // 3. Precio total en bolívares = precio_dolar_BCV * tasa_BCV
+            const totalBolivares = precioDolarBCV * b;
+            
+            const precioVentaBS = totalBolivares.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
             
             lista.innerHTML += `
                 <div class="product-item">
@@ -214,17 +241,25 @@
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M16.624 13.9202L13.231 17.3124L12.0006 18.5428L10.7702 17.3124L7.37722 13.9202L6.14675 12.6898L4.91628 13.9202L12.0006 21.0045L19.085 13.9202L17.8545 12.6898L16.624 13.9202Z"/><path d="M12.0006 2.99551L4.91628 10.0798L6.14675 11.3103L7.37722 10.0798L10.7702 6.68763L12.0006 5.45716L13.231 6.68763L16.624 10.0798L17.8545 11.3103L19.085 10.0798L12.0006 2.99551Z"/><path d="M7.37722 12L12.0006 7.37661L16.624 12L12.0006 16.6234L7.37722 12Z"/></svg>
                         Oferta Binance
                     </div>
-                    <div style="font-weight:700; font-size: 1.1rem; margin-bottom:4px">${p.nombre}</div>
-                    <div class="price-tag">$ ${precioVentaUSD.toFixed(2)} <small style="font-size:0.7rem; color:#64748b">BCV</small></div>
+                    <div style="font-weight:700; font-size: 1.1rem; margin-bottom:4px">${escapeHtml(p.nombre)}</div>
+                    <div class="price-tag">$ ${precioDolarBCV.toFixed(2)} <small style="font-size:0.7rem; color:#64748b">BCV</small></div>
                     <div style="font-size:0.95rem; color:#1e293b; margin-top:2px">Total Bs: <b>${precioVentaBS}</b></div>
-                    <div class="binance-price"><span>Binance:</span><b>${precioBinance.toFixed(2)} USDT</b></div>
+                    <div class="binance-price"><span>Binance:</span><b>${precioOfertaBinance.toFixed(2)} USDT</b></div>
                     <div class="actions">
-                        <button class="btn-sm" style="background:var(--copy); color:white" onclick="copiarPortapapeles('${p.nombre}', '${precioBinance.toFixed(2)}', '${precioVentaUSD.toFixed(2)}', '${precioVentaBS}')">📋 Copiar</button>
+                        <button class="btn-sm" style="background:var(--copy); color:white" onclick="copiarPortapapeles('${escapeHtml(p.nombre).replace(/'/g, "\\'")}', '${precioOfertaBinance.toFixed(2)}', '${precioDolarBCV.toFixed(2)}', '${precioVentaBS}')">📋 Copiar</button>
                         <button class="btn-sm" style="background:#e2e8f0" onclick="editar(${p.id})">Editar</button>
                         <button class="btn-sm" style="background:#fee2e2; color:red" onclick="borrar(${p.id})">Borrar</button>
                     </div>
                 </div>`;
         });
+    }
+
+    // Función auxiliar para escapar HTML y prevenir XSS
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     function descargarBackup() {
@@ -235,18 +270,30 @@
         a.href = url;
         a.download = `respaldo_precios_${new Date().toLocaleDateString()}.json`;
         a.click();
+        URL.revokeObjectURL(url);
     }
 
     function subirBackup(event) {
+        const file = event.target.files[0];
+        if (!file) return;
         const reader = new FileReader();
         reader.onload = (e) => {
             try {
-                productos = JSON.parse(e.target.result);
-                save();
-                toast("📤 Respaldo cargado");
-            } catch(err) { toast("❌ Archivo inválido"); }
+                const data = JSON.parse(e.target.result);
+                if (Array.isArray(data)) {
+                    productos = data;
+                    save();
+                    toast("📤 Respaldo cargado correctamente");
+                } else {
+                    toast("❌ Formato de archivo inválido");
+                }
+            } catch(err) { 
+                toast("❌ Error al leer el archivo"); 
+            }
+            // Limpiar input para permitir cargar el mismo archivo nuevamente
+            document.getElementById('fileInput').value = '';
         };
-        reader.readAsText(event.target.files[0]);
+        reader.readAsText(file);
     }
 
     // Iniciar con tasas guardadas
