@@ -32,6 +32,82 @@
         .actions { display: flex; gap: 8px; margin-top: 10px; }
         .btn-sm { flex: 1; padding: 10px; font-size: 0.75rem; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; }
         
+        /* Estilos del buscador inteligente - No invasivo */
+        .search-container { 
+            margin-bottom: 15px; 
+            position: sticky; 
+            top: 5px; 
+            z-index: 100;
+            background: transparent;
+        }
+        .search-wrapper {
+            background: var(--card);
+            border-radius: 50px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            padding: 4px 16px;
+            transition: all 0.2s ease;
+            border: 1px solid #e2e8f0;
+        }
+        .search-wrapper:focus-within {
+            border-color: var(--primary);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+            transform: scale(1.01);
+        }
+        .search-icon {
+            color: #94a3b8;
+            font-size: 1.2rem;
+            margin-right: 8px;
+            font-weight: normal;
+        }
+        #searchInput {
+            border: none;
+            padding: 12px 0;
+            font-size: 0.95rem;
+            background: transparent;
+            width: 100%;
+            outline: none;
+        }
+        #searchInput::placeholder {
+            color: #cbd5e1;
+            font-weight: 400;
+        }
+        .clear-search {
+            background: none;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 8px;
+            border-radius: 50%;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+        }
+        .clear-search:hover {
+            background: #f1f5f9;
+        }
+        .search-stats {
+            font-size: 0.7rem;
+            color: #64748b;
+            margin-top: 6px;
+            margin-left: 12px;
+            display: none;
+        }
+        .search-stats.active {
+            display: block;
+        }
+        .no-results {
+            text-align: center;
+            padding: 30px 20px;
+            background: var(--card);
+            border-radius: 16px;
+            color: #94a3b8;
+        }
+        
         #toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px); background: #1e293b; color: white; padding: 10px 20px; border-radius: 30px; transition: 0.4s; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
         #toast.show { transform: translateX(-50%) translateY(0); }
     </style>
@@ -79,11 +155,24 @@
         <button id="btnCancel" onclick="limpiarForm()" style="display:none; width:100%; border:none; background:none; color:red; margin-top:10px; font-size:0.8rem">Cancelar Edición</button>
     </div>
 
+    <!-- BUSCADOR INTELIGENTE - No invasivo, sticky pero suave -->
+    <div class="search-container">
+        <div class="search-wrapper">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="searchInput" placeholder="Buscar producto... (nombre o descripción)" autocomplete="off">
+            <button class="clear-search" id="clearSearchBtn" onclick="clearSearch()">✕</button>
+        </div>
+        <div class="search-stats" id="searchStats">
+            <span id="resultsCount">0</span> producto(s) encontrado(s)
+        </div>
+    </div>
+
     <div id="listaProductos"></div>
 </div>
 
 <script>
     let productos = JSON.parse(localStorage.getItem('inventario_v3')) || [];
+    let searchTerm = '';
     
     // Cargar las tasas confirmadas del storage al iniciar
     function cargarTasasIniciales() {
@@ -124,7 +213,7 @@
         const id = document.getElementById('editId').value;
         const n = document.getElementById('pNombre').value;
         const c = parseFloat(document.getElementById('pCosto').value);
-        const g = parseFloat(document.getElementById('pGanancia').value);
+        let g = parseFloat(document.getElementById('pGanancia').value);
 
         if(!n || isNaN(c)) return toast("❌ Error en datos");
         if(isNaN(g)) g = 0;
@@ -167,25 +256,11 @@
         texto += `━━━━━━━━━━━━━━━━━━\n\n`;
 
         productos.forEach(p => {
-            // CORRECCIÓN FÓRMULA PRECIO BCV: costo_usdt + (costo_usdt * brecha) + ganancia_usdt + (ganancia_usdt * brecha)
-            // Desglose explicado: El precio en dólares BCV = (costoUSDT * (1 + brecha)) + (gananciaUSDT * (1 + brecha))
-            // Desglose explicado: Pero es más claro como: (costoUSDT + gananciaUSDT) * (1 + brecha)
             const brechaDecimal = (u / b) - 1;
             const factorBrecha = (1 + brechaDecimal);
-            
-            // FÓRMULA CORRECTA según especificación:
-            // Precio en dólares BCV = (costo USDT + ganancia USDT) * (1 + brecha)
-            // Esto equivale a: costo_usdt + (costo_usdt * brecha) + ganancia_usdt + (ganancia_usdt * brecha)
             const precioDolarBCV = (p.costo + p.ganancia) * factorBrecha;
-            
-            // Total en bolívares = Precio dólar BCV * Tasa BCV
             const totalBolivares = precioDolarBCV * b;
-            
-            // PRECIO BINANCE (Oferta por transferencia): 
-            // Según especificación: costo_usdt + (costo_usdt * brecha)
-            // Es decir: costo_usdt * (1 + brecha)
             const precioOfertaBinance = p.costo * factorBrecha;
-            
             const precioVentaBS = totalBolivares.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
             
             texto += `⭐ *${p.nombre}*\n`;
@@ -212,27 +287,102 @@
 
     function save() { localStorage.setItem('inventario_v3', JSON.stringify(productos)); renderizar(); }
 
+    // Función de búsqueda inteligente (insensible a mayúsculas/minúsculas, busca en nombre)
+    function filterProductsBySearch(products, term) {
+        if (!term.trim()) return products;
+        const lowerTerm = term.toLowerCase().trim();
+        return products.filter(p => p.nombre.toLowerCase().includes(lowerTerm));
+    }
+
+    // Actualizar UI del buscador (mostrar/ocultar botón limpiar y estadísticas)
+    function updateSearchUI() {
+        const clearBtn = document.getElementById('clearSearchBtn');
+        const searchStats = document.getElementById('searchStats');
+        const resultsCountSpan = document.getElementById('resultsCount');
+        
+        if (searchTerm.length > 0) {
+            clearBtn.style.display = 'flex';
+            const filtered = filterProductsBySearch(productos, searchTerm);
+            resultsCountSpan.innerText = filtered.length;
+            searchStats.classList.add('active');
+        } else {
+            clearBtn.style.display = 'none';
+            searchStats.classList.remove('active');
+        }
+    }
+
+    // Limpiar búsqueda
+    function clearSearch() {
+        const searchInput = document.getElementById('searchInput');
+        searchInput.value = '';
+        searchTerm = '';
+        updateSearchUI();
+        renderizar();
+        
+        // Opcional: feedback táctil
+        toast("🔍 Búsqueda limpiada");
+    }
+
+    // Evento de búsqueda en tiempo real
+    function setupSearch() {
+        const searchInput = document.getElementById('searchInput');
+        
+        searchInput.addEventListener('input', (e) => {
+            searchTerm = e.target.value;
+            updateSearchUI();
+            renderizar();
+        });
+        
+        // Capturar tecla ESC para limpiar
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                clearSearch();
+                searchInput.blur(); // Quita el foco del teclado en móvil
+            }
+        });
+    }
+
     function renderizar() {
         const b = parseFloat(localStorage.getItem('tasaBCV_confirmada')) || 1;
         const u = parseFloat(localStorage.getItem('tasaUSDT_confirmada')) || 1;
         const brechaDecimal = (u / b) - 1;
         const factorBrecha = (1 + brechaDecimal);
         
+        // Aplicar filtro de búsqueda
+        let productosFiltrados = filterProductsBySearch(productos, searchTerm);
+        
         const lista = document.getElementById('listaProductos');
+        
+        // Si no hay resultados y hay término de búsqueda
+        if (productosFiltrados.length === 0 && searchTerm.trim() !== '') {
+            lista.innerHTML = `
+                <div class="no-results">
+                    <span style="font-size: 3rem;">🔍</span><br>
+                    No se encontraron productos con "<strong>${escapeHtml(searchTerm)}</strong>"<br>
+                    <small style="font-size: 0.75rem;">Intenta con otro nombre</small>
+                </div>
+            `;
+            return;
+        }
+        
+        // Si no hay productos en general
+        if (productos.length === 0) {
+            lista.innerHTML = `
+                <div class="no-results">
+                    <span style="font-size: 3rem;">📦</span><br>
+                    No hay productos registrados<br>
+                    <small>Agrega tu primer producto arriba</small>
+                </div>
+            `;
+            return;
+        }
+        
         lista.innerHTML = '';
 
-        productos.forEach(p => {
-            // CÁLCULOS CORREGIDOS según especificación:
-            // 1. Precio oferta Binance = costo_usdt + (costo_usdt * brecha) = costo_usdt * (1 + brecha)
+        productosFiltrados.forEach(p => {
             const precioOfertaBinance = p.costo * factorBrecha;
-            
-            // 2. Precio en dólares BCV = costo_usdt + (costo_usdt * brecha) + ganancia_usdt + (ganancia_usdt * brecha)
-            // Esto simplifica a: (costo_usdt + ganancia_usdt) * (1 + brecha)
             const precioDolarBCV = (p.costo + p.ganancia) * factorBrecha;
-            
-            // 3. Precio total en bolívares = precio_dolar_BCV * tasa_BCV
             const totalBolivares = precioDolarBCV * b;
-            
             const precioVentaBS = totalBolivares.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
             
             lista.innerHTML += `
@@ -290,14 +440,14 @@
             } catch(err) { 
                 toast("❌ Error al leer el archivo"); 
             }
-            // Limpiar input para permitir cargar el mismo archivo nuevamente
             document.getElementById('fileInput').value = '';
         };
         reader.readAsText(file);
     }
 
-    // Iniciar con tasas guardadas
+    // Inicialización
     cargarTasasIniciales();
+    setupSearch();      // Activar buscador inteligente
     renderizar();
 </script>
 
