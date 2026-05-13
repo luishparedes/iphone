@@ -24,6 +24,7 @@
         
         .brecha-box { background: #fffbeb; border: 1px solid #fef3c7; padding: 12px; border-radius: 10px; margin-top: 10px; border-left: 4px solid var(--warning); }
         .brecha-percent { color: #92400e; font-weight: 800; font-size: 1.1rem; }
+        .brecha-warning { background: #fee2e2; border-left-color: var(--danger); margin-top: 8px; font-size: 0.7rem; color: #991b1b; }
         
         .product-item { background: white; padding: 16px; border-radius: 14px; margin-bottom: 10px; border-left: 6px solid var(--primary); box-shadow: 0 2px 4px rgba(0,0,0,0.05); position: relative; }
         .binance-badge { position: absolute; top: 15px; right: 15px; background: #fff9e6; color: #d97706; padding: 4px 8px; border-radius: 8px; font-size: 0.7rem; font-weight: 800; display: flex; align-items: center; gap: 4px; border: 1px solid #f3ba2f; }
@@ -32,89 +33,29 @@
         .actions { display: flex; gap: 8px; margin-top: 10px; }
         .btn-sm { flex: 1; padding: 10px; font-size: 0.75rem; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; }
         
-        /* Estilos del buscador inteligente - No invasivo */
-        .search-container { 
-            margin-bottom: 15px; 
-            position: sticky; 
-            top: 5px; 
-            z-index: 100;
-            background: transparent;
-        }
-        .search-wrapper {
-            background: var(--card);
-            border-radius: 50px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            display: flex;
-            align-items: center;
-            padding: 4px 16px;
-            transition: all 0.2s ease;
-            border: 1px solid #e2e8f0;
-        }
-        .search-wrapper:focus-within {
-            border-color: var(--primary);
-            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
-            transform: scale(1.01);
-        }
-        .search-icon {
-            color: #94a3b8;
-            font-size: 1.2rem;
-            margin-right: 8px;
-            font-weight: normal;
-        }
-        #searchInput {
-            border: none;
-            padding: 12px 0;
-            font-size: 0.95rem;
-            background: transparent;
-            width: 100%;
-            outline: none;
-        }
-        #searchInput::placeholder {
-            color: #cbd5e1;
-            font-weight: 400;
-        }
-        .clear-search {
-            background: none;
-            border: none;
-            color: #94a3b8;
-            cursor: pointer;
-            font-size: 1.2rem;
-            padding: 8px;
-            border-radius: 50%;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            width: 28px;
-            height: 28px;
-        }
-        .clear-search:hover {
-            background: #f1f5f9;
-        }
-        .search-stats {
-            font-size: 0.7rem;
-            color: #64748b;
-            margin-top: 6px;
-            margin-left: 12px;
-            display: none;
-        }
-        .search-stats.active {
-            display: block;
-        }
-        .no-results {
-            text-align: center;
-            padding: 30px 20px;
-            background: var(--card);
-            border-radius: 16px;
-            color: #94a3b8;
-        }
+        .search-container { margin-bottom: 15px; position: sticky; top: 5px; z-index: 100; background: transparent; }
+        .search-wrapper { background: var(--card); border-radius: 50px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: flex; align-items: center; padding: 4px 16px; transition: all 0.2s ease; border: 1px solid #e2e8f0; }
+        .search-wrapper:focus-within { border-color: var(--primary); box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2); transform: scale(1.01); }
+        .search-icon { color: #94a3b8; font-size: 1.2rem; margin-right: 8px; font-weight: normal; }
+        #searchInput { border: none; padding: 12px 0; font-size: 0.95rem; background: transparent; width: 100%; outline: none; }
+        #searchInput::placeholder { color: #cbd5e1; font-weight: 400; }
+        .clear-search { background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 1.2rem; padding: 8px; border-radius: 50%; display: none; align-items: center; justify-content: center; width: 28px; height: 28px; }
+        .clear-search:hover { background: #f1f5f9; }
+        .search-stats { font-size: 0.7rem; color: #64748b; margin-top: 6px; margin-left: 12px; display: none; }
+        .search-stats.active { display: block; }
+        .no-results { text-align: center; padding: 30px 20px; background: var(--card); border-radius: 16px; color: #94a3b8; }
         
         #toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px); background: #1e293b; color: white; padding: 10px 20px; border-radius: 30px; transition: 0.4s; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
         #toast.show { transform: translateX(-50%) translateY(0); }
+        
+        .alert-min-brecha { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #ef4444; color: white; padding: 12px 20px; border-radius: 12px; font-size: 0.8rem; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.2); display: none; align-items: center; gap: 8px; max-width: 90%; text-align: center; }
+        .alert-min-brecha.show { display: flex; }
     </style>
 </head>
 <body>
 
 <div id="toast">✅ Acción realizada</div>
+<div id="alertMinBrecha" class="alert-min-brecha">⚠️ La brecha está por debajo del 30% - Se usará 30% como mínimo</div>
 
 <div class="container">
     <div class="card">
@@ -127,6 +68,7 @@
         <div class="brecha-box">
             <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px;">Brecha Confirmada Actual</div>
             <div id="displayBrecha" class="brecha-percent">0.00%</div>
+            <div id="brechaAdvertencia" class="brecha-warning" style="display:none;">⚠️ Brecha por debajo del 30% - Se aplicará 30% mínimo</div>
             <div style="font-size: 0.75rem; color: #92400e;">⚠️ Los cambios solo se aplican al pulsar el botón verde.</div>
         </div>
         
@@ -155,7 +97,7 @@
         <button id="btnCancel" onclick="limpiarForm()" style="display:none; width:100%; border:none; background:none; color:red; margin-top:10px; font-size:0.8rem">Cancelar Edición</button>
     </div>
 
-    <!-- BUSCADOR INTELIGENTE - No invasivo, sticky pero suave -->
+    <!-- BUSCADOR INTELIGENTE -->
     <div class="search-container">
         <div class="search-wrapper">
             <span class="search-icon">🔍</span>
@@ -173,8 +115,67 @@
 <script>
     let productos = JSON.parse(localStorage.getItem('inventario_v3')) || [];
     let searchTerm = '';
+    const BRECHA_MINIMA = 0.30; // 30% mínimo
     
-    // Cargar las tasas confirmadas del storage al iniciar
+    // Función para obtener la brecha efectiva (nunca menor a 30%)
+    function getBrechaEfectiva(b, u) {
+        const brechaCalculada = (parseFloat(u) / parseFloat(b)) - 1;
+        
+        // Mostrar alerta si la brecha es menor al 30%
+        const alertaDiv = document.getElementById('alertMinBrecha');
+        const advertenciaBox = document.getElementById('brechaAdvertencia');
+        
+        if (brechaCalculada < BRECHA_MINIMA && brechaCalculada > 0) {
+            alertaDiv.classList.add('show');
+            advertenciaBox.style.display = 'block';
+            setTimeout(() => alertaDiv.classList.remove('show'), 3000);
+            return BRECHA_MINIMA;
+        } else {
+            alertaDiv.classList.remove('show');
+            advertenciaBox.style.display = 'none';
+            return brechaCalculada;
+        }
+    }
+    
+    // Fórmula de precio con división: costo / (1 - brecha)
+    // Ejemplo: costo 10, brecha 30% (0.3) → 10 / (1 - 0.3) = 10 / 0.7 = 14.2857
+    function calcularPrecioConBrecha(costo, brechaDecimal) {
+        if (brechaDecimal >= 1) return costo * (1 + brechaDecimal); // Fallback seguro
+        const divisor = 1 - brechaDecimal;
+        if (divisor <= 0) return costo * (1 + brechaDecimal);
+        return costo / divisor;
+    }
+    
+    // Obtener brecha, tasas y precios calculados para un producto
+    function getPreciosProducto(producto) {
+        const b = parseFloat(localStorage.getItem('tasaBCV_confirmada')) || 1;
+        const u = parseFloat(localStorage.getItem('tasaUSDT_confirmada')) || 1;
+        const brechaReal = (u / b) - 1;
+        const brechaEfectiva = getBrechaEfectiva(b, u);
+        
+        // PRECIO OFERTA BINANCE: costo aplicando brecha con división
+        // Fórmula: costo / (1 - brechaEfectiva)
+        const precioOfertaBinance = calcularPrecioConBrecha(producto.costo, brechaEfectiva);
+        
+        // PRECIO FINAL BCV EN DÓLARES: (costo con brecha) + (ganancia con brecha)
+        // Ganancia también se incrementa con la misma brecha usando división
+        const costoConBrecha = calcularPrecioConBrecha(producto.costo, brechaEfectiva);
+        const gananciaConBrecha = calcularPrecioConBrecha(producto.ganancia, brechaEfectiva);
+        const precioDolarBCV = costoConBrecha + gananciaConBrecha;
+        
+        // Total en bolívares = precio dólar BCV * tasa BCV
+        const totalBolivares = precioDolarBCV * b;
+        
+        return {
+            brechaReal: brechaReal,
+            brechaEfectiva: brechaEfectiva,
+            precioOfertaBinance: precioOfertaBinance,
+            precioDolarBCV: precioDolarBCV,
+            totalBolivares: totalBolivares,
+            usaBrechaMinima: brechaEfectiva === BRECHA_MINIMA && brechaReal < BRECHA_MINIMA
+        };
+    }
+    
     function cargarTasasIniciales() {
         const b = localStorage.getItem('tasaBCV_confirmada') || "47.80";
         const u = localStorage.getItem('tasaUSDT_confirmada') || "64.00";
@@ -191,8 +192,14 @@
     }
 
     function actualizarUIBrecha(b, u) {
-        const diff = ((parseFloat(u)/parseFloat(b)) - 1) * 100;
-        document.getElementById('displayBrecha').innerText = diff.toFixed(2) + "%";
+        const brechaReal = ((parseFloat(u)/parseFloat(b)) - 1) * 100;
+        const brechaEfectiva = getBrechaEfectiva(b, u) * 100;
+        
+        if (brechaReal < 30 && brechaReal > 0) {
+            document.getElementById('displayBrecha').innerHTML = `${brechaReal.toFixed(2)}% <span style="color:#ef4444; font-size:0.7rem;">→ Usando ${brechaEfectiva.toFixed(2)}% (mínimo)</span>`;
+        } else {
+            document.getElementById('displayBrecha').innerHTML = `${brechaReal.toFixed(2)}%`;
+        }
     }
 
     function confirmarTasas() {
@@ -200,6 +207,13 @@
         const u = document.getElementById('tasaUSDT').value;
         
         if(!b || !u || b <= 0 || u <= 0) return toast("❌ Tasas inválidas");
+        
+        const brechaReal = (parseFloat(u)/parseFloat(b)) - 1;
+        
+        // Validación y alerta si la brecha es menor al 30%
+        if (brechaReal < BRECHA_MINIMA && brechaReal > 0) {
+            toast(`⚠️ Brecha del ${(brechaReal*100).toFixed(2)}% es menor al 30%. Se usará ${BRECHA_MINIMA*100}% como mínimo.`);
+        }
 
         localStorage.setItem('tasaBCV_confirmada', b);
         localStorage.setItem('tasaUSDT_confirmada', u);
@@ -242,31 +256,30 @@
 
     function borrar(id) { if(confirm("¿Eliminar producto?")) { productos = productos.filter(p => p.id !== id); save(); } }
 
-    function copiarPortapapeles(nombre, precioBinance, precioBcv, precioBs) {
-        const texto = `🛍️ *${nombre}*\n\n💵 *Precio:* $${precioBcv} (BCV)\n🇻🇪 *Total Bs:* ${precioBs}\n\n🔸 *OFERTA BINANCE:* ${precioBinance} USDT\n\n📍 *Ubicación:* Carrera 13 esquina calle 18, Yaritagua.\n📞 *Contacto:* 0412-5278450\n\n_Válido por 12 horas. Consulta existencias._`;
+    function copiarPortapapeles(nombre, precioBinance, precioDolar, precioBs, avisoMinimo) {
+        let texto = `🛍️ *${nombre}*\n\n💵 *Precio:* $${precioDolar} (BCV)\n🇻🇪 *Total Bs:* ${precioBs}\n\n🔸 *OFERTA BINANCE:* ${precioBinance} USDT`;
+        if (avisoMinimo) {
+            texto += `\n⚠️ *Aplicada brecha mínima del 30%*`;
+        }
+        texto += `\n\n📍 *Ubicación:* Carrera 13 esquina calle 18, Yaritagua.\n📞 *Contacto:* 0412-5278450\n\n_Válido por 12 horas. Consulta existencias._`;
         navigator.clipboard.writeText(texto).then(() => toast("📋 Copiado"));
     }
 
     function copiarCatalogo() {
         if(productos.length === 0) return toast("⚠️ No hay productos");
-        const b = parseFloat(localStorage.getItem('tasaBCV_confirmada'));
-        const u = parseFloat(localStorage.getItem('tasaUSDT_confirmada'));
         
         let texto = `📦 *CATÁLOGO DE PRODUCTOS - ${new Date().toLocaleDateString()}*\n`;
         texto += `━━━━━━━━━━━━━━━━━━\n\n`;
 
         productos.forEach(p => {
-            const brechaDecimal = (u / b) - 1;
-            const factorBrecha = (1 + brechaDecimal);
-            const precioDolarBCV = (p.costo + p.ganancia) * factorBrecha;
-            const totalBolivares = precioDolarBCV * b;
-            const precioOfertaBinance = p.costo * factorBrecha;
-            const precioVentaBS = totalBolivares.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            const precios = getPreciosProducto(p);
+            const precioVentaBS = precios.totalBolivares.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
             
             texto += `⭐ *${p.nombre}*\n`;
             texto += `🔹 Pago Bs: ${precioVentaBS} Bs\n`;
-            texto += `🔸 Oferta Binance: ${precioOfertaBinance.toFixed(2)} USDT\n`;
-            texto += `──────────────────\n`;
+            texto += `🔸 Oferta Binance: ${precios.precioOfertaBinance.toFixed(2)} USDT`;
+            if (precios.usaBrechaMinima) texto += ` (brecha mínima 30%)`;
+            texto += `\n──────────────────\n`;
         });
 
         texto += `\n📍 *Dirección:* Yaritagua-Yaracuy, Carrera 13 esq. Calle 18, Padre Torres.\n`;
@@ -287,14 +300,12 @@
 
     function save() { localStorage.setItem('inventario_v3', JSON.stringify(productos)); renderizar(); }
 
-    // Función de búsqueda inteligente (insensible a mayúsculas/minúsculas, busca en nombre)
     function filterProductsBySearch(products, term) {
         if (!term.trim()) return products;
         const lowerTerm = term.toLowerCase().trim();
         return products.filter(p => p.nombre.toLowerCase().includes(lowerTerm));
     }
 
-    // Actualizar UI del buscador (mostrar/ocultar botón limpiar y estadísticas)
     function updateSearchUI() {
         const clearBtn = document.getElementById('clearSearchBtn');
         const searchStats = document.getElementById('searchStats');
@@ -311,19 +322,15 @@
         }
     }
 
-    // Limpiar búsqueda
     function clearSearch() {
         const searchInput = document.getElementById('searchInput');
         searchInput.value = '';
         searchTerm = '';
         updateSearchUI();
         renderizar();
-        
-        // Opcional: feedback táctil
         toast("🔍 Búsqueda limpiada");
     }
 
-    // Evento de búsqueda en tiempo real
     function setupSearch() {
         const searchInput = document.getElementById('searchInput');
         
@@ -333,27 +340,21 @@
             renderizar();
         });
         
-        // Capturar tecla ESC para limpiar
         searchInput.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 clearSearch();
-                searchInput.blur(); // Quita el foco del teclado en móvil
+                searchInput.blur();
             }
         });
     }
 
     function renderizar() {
         const b = parseFloat(localStorage.getItem('tasaBCV_confirmada')) || 1;
-        const u = parseFloat(localStorage.getItem('tasaUSDT_confirmada')) || 1;
-        const brechaDecimal = (u / b) - 1;
-        const factorBrecha = (1 + brechaDecimal);
         
-        // Aplicar filtro de búsqueda
         let productosFiltrados = filterProductsBySearch(productos, searchTerm);
         
         const lista = document.getElementById('listaProductos');
         
-        // Si no hay resultados y hay término de búsqueda
         if (productosFiltrados.length === 0 && searchTerm.trim() !== '') {
             lista.innerHTML = `
                 <div class="no-results">
@@ -365,7 +366,6 @@
             return;
         }
         
-        // Si no hay productos en general
         if (productos.length === 0) {
             lista.innerHTML = `
                 <div class="no-results">
@@ -380,10 +380,10 @@
         lista.innerHTML = '';
 
         productosFiltrados.forEach(p => {
-            const precioOfertaBinance = p.costo * factorBrecha;
-            const precioDolarBCV = (p.costo + p.ganancia) * factorBrecha;
-            const totalBolivares = precioDolarBCV * b;
-            const precioVentaBS = totalBolivares.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            const precios = getPreciosProducto(p);
+            const precioVentaBS = precios.totalBolivares.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            
+            const avisoMinimoHtml = precios.usaBrechaMinima ? '<span style="background:#fee2e2; color:#991b1b; font-size:0.6rem; padding:2px 6px; border-radius:10px; margin-left:6px;">Brecha mínima 30%</span>' : '';
             
             lista.innerHTML += `
                 <div class="product-item">
@@ -391,12 +391,14 @@
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M16.624 13.9202L13.231 17.3124L12.0006 18.5428L10.7702 17.3124L7.37722 13.9202L6.14675 12.6898L4.91628 13.9202L12.0006 21.0045L19.085 13.9202L17.8545 12.6898L16.624 13.9202Z"/><path d="M12.0006 2.99551L4.91628 10.0798L6.14675 11.3103L7.37722 10.0798L10.7702 6.68763L12.0006 5.45716L13.231 6.68763L16.624 10.0798L17.8545 11.3103L19.085 10.0798L12.0006 2.99551Z"/><path d="M7.37722 12L12.0006 7.37661L16.624 12L12.0006 16.6234L7.37722 12Z"/></svg>
                         Oferta Binance
                     </div>
-                    <div style="font-weight:700; font-size: 1.1rem; margin-bottom:4px">${escapeHtml(p.nombre)}</div>
-                    <div class="price-tag">$ ${precioDolarBCV.toFixed(2)} <small style="font-size:0.7rem; color:#64748b">BCV</small></div>
+                    <div style="font-weight:700; font-size: 1.1rem; margin-bottom:4px">
+                        ${escapeHtml(p.nombre)} ${avisoMinimoHtml}
+                    </div>
+                    <div class="price-tag">$ ${precios.precioDolarBCV.toFixed(2)} <small style="font-size:0.7rem; color:#64748b">BCV</small></div>
                     <div style="font-size:0.95rem; color:#1e293b; margin-top:2px">Total Bs: <b>${precioVentaBS}</b></div>
-                    <div class="binance-price"><span>Binance:</span><b>${precioOfertaBinance.toFixed(2)} USDT</b></div>
+                    <div class="binance-price"><span>Binance:</span><b>${precios.precioOfertaBinance.toFixed(2)} USDT</b></div>
                     <div class="actions">
-                        <button class="btn-sm" style="background:var(--copy); color:white" onclick="copiarPortapapeles('${escapeHtml(p.nombre).replace(/'/g, "\\'")}', '${precioOfertaBinance.toFixed(2)}', '${precioDolarBCV.toFixed(2)}', '${precioVentaBS}')">📋 Copiar</button>
+                        <button class="btn-sm" style="background:var(--copy); color:white" onclick="copiarPortapapeles('${escapeHtml(p.nombre).replace(/'/g, "\\'")}', '${precios.precioOfertaBinance.toFixed(2)}', '${precios.precioDolarBCV.toFixed(2)}', '${precioVentaBS}', ${precios.usaBrechaMinima})">📋 Copiar</button>
                         <button class="btn-sm" style="background:#e2e8f0" onclick="editar(${p.id})">Editar</button>
                         <button class="btn-sm" style="background:#fee2e2; color:red" onclick="borrar(${p.id})">Borrar</button>
                     </div>
@@ -404,7 +406,6 @@
         });
     }
 
-    // Función auxiliar para escapar HTML y prevenir XSS
     function escapeHtml(text) {
         if (!text) return '';
         const div = document.createElement('div');
@@ -445,9 +446,8 @@
         reader.readAsText(file);
     }
 
-    // Inicialización
     cargarTasasIniciales();
-    setupSearch();      // Activar buscador inteligente
+    setupSearch();
     renderizar();
 </script>
 
