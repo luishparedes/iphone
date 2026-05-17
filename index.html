@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Master Costos VZLA Pro</title>
+    <title>Master Costos VZLA Pro - Precios Protegidos</title>
     <style>
         :root {
             --primary: #2563eb; --success: #059669; --warning: #d97706; --danger: #ef4444;
@@ -66,7 +66,7 @@
         </div>
         
         <div class="brecha-box">
-            <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px;">Brecha Confirmada Actual</div>
+            <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px;">Brecha Cambiaria Actual</div>
             <div id="displayBrecha" class="brecha-percent">0.00%</div>
             <div id="brechaAdvertencia" class="brecha-warning" style="display:none;">⚠️ Brecha por debajo del 30% - Se aplicará 30% mínimo</div>
             <div style="font-size: 0.75rem; color: #92400e;">⚠️ Los cambios solo se aplican al pulsar el botón verde.</div>
@@ -90,8 +90,8 @@
         <input type="hidden" id="editId">
         <input type="text" id="pNombre" placeholder="Nombre del producto" style="margin-bottom:10px">
         <div class="grid">
-            <div class="input-group"><label>Costo (USDT)</label><input type="number" id="pCosto" step="0.01"></div>
-            <div class="input-group"><label>Ganancia (USDT)</label><input type="number" id="pGanancia" step="0.01"></div>
+            <div class="input-group"><label>Costo (USD)</label><input type="number" id="pCosto" step="0.01"></div>
+            <div class="input-group"><label>Ganancia (USD)</label><input type="number" id="pGanancia" step="0.01"></div>
         </div>
         <button class="btn btn-primary" id="btnGuardar" onclick="guardarProducto()">💾 Guardar Producto</button>
         <button id="btnCancel" onclick="limpiarForm()" style="display:none; width:100%; border:none; background:none; color:red; margin-top:10px; font-size:0.8rem">Cancelar Edición</button>
@@ -101,7 +101,7 @@
     <div class="search-container">
         <div class="search-wrapper">
             <span class="search-icon">🔍</span>
-            <input type="text" id="searchInput" placeholder="Buscar producto... (nombre o descripción)" autocomplete="off">
+            <input type="text" id="searchInput" placeholder="Buscar producto... (nombre)" autocomplete="off">
             <button class="clear-search" id="clearSearchBtn" onclick="clearSearch()">✕</button>
         </div>
         <div class="search-stats" id="searchStats">
@@ -113,69 +113,114 @@
 </div>
 
 <script>
+    // ============================================================
+    // VARIABLES GLOBALES
+    // ============================================================
     let productos = JSON.parse(localStorage.getItem('inventario_v3')) || [];
     let searchTerm = '';
-    const BRECHA_MINIMA = 0.30; // 30% mínimo
+    const BRECHA_MINIMA = 0.30; // 30% mínimo para proteger margen
+
+    // ============================================================
+    // LÓGICA DE PRECIOS PROTEGIDA (Según requerimiento)
+    // ============================================================
+    // Fórmula implementada:
+    // 1. Precio Base USD = Costo + Ganancia
+    // 2. Total Bolívares = Precio Base USD * Tasa USDT
+    // 3. Precio Venta USD_BCV = Total Bolívares / Tasa BCV
     
-    // Función para obtener la brecha efectiva (nunca menor a 30%)
-    function getBrechaEfectiva(b, u) {
-        const brechaCalculada = (parseFloat(u) / parseFloat(b)) - 1;
-        
-        // Mostrar alerta si la brecha es menor al 30%
-        const alertaDiv = document.getElementById('alertMinBrecha');
-        const advertenciaBox = document.getElementById('brechaAdvertencia');
-        
-        if (brechaCalculada < BRECHA_MINIMA && brechaCalculada > 0) {
-            alertaDiv.classList.add('show');
-            advertenciaBox.style.display = 'block';
-            setTimeout(() => alertaDiv.classList.remove('show'), 3000);
-            return BRECHA_MINIMA;
-        } else {
-            alertaDiv.classList.remove('show');
-            advertenciaBox.style.display = 'none';
-            return brechaCalculada;
-        }
-    }
-    
-    // Fórmula de precio con división: costo / (1 - brecha)
-    // Ejemplo: costo 10, brecha 30% (0.3) → 10 / (1 - 0.3) = 10 / 0.7 = 14.2857
-    function calcularPrecioConBrecha(costo, brechaDecimal) {
-        if (brechaDecimal >= 1) return costo * (1 + brechaDecimal); // Fallback seguro
-        const divisor = 1 - brechaDecimal;
-        if (divisor <= 0) return costo * (1 + brechaDecimal);
-        return costo / divisor;
-    }
-    
-    // Obtener brecha, tasas y precios calculados para un producto
     function getPreciosProducto(producto) {
-        const b = parseFloat(localStorage.getItem('tasaBCV_confirmada')) || 1;
-        const u = parseFloat(localStorage.getItem('tasaUSDT_confirmada')) || 1;
-        const brechaReal = (u / b) - 1;
-        const brechaEfectiva = getBrechaEfectiva(b, u);
+        // Obtener tasas confirmadas
+        const tasa_bcv = parseFloat(localStorage.getItem('tasaBCV_confirmada')) || 1;
+        const tasa_usdt = parseFloat(localStorage.getItem('tasaUSDT_confirmada')) || 1;
         
-        // PRECIO OFERTA BINANCE: costo aplicando brecha con división
-        // Fórmula: costo / (1 - brechaEfectiva)
-        const precioOfertaBinance = calcularPrecioConBrecha(producto.costo, brechaEfectiva);
+        // Variables del producto
+        const costo_producto = producto.costo;
+        const ganancia_usd = producto.ganancia;
         
-        // PRECIO FINAL BCV EN DÓLARES: (costo con brecha) + (ganancia con brecha)
-        // Ganancia también se incrementa con la misma brecha usando división
-        const costoConBrecha = calcularPrecioConBrecha(producto.costo, brechaEfectiva);
-        const gananciaConBrecha = calcularPrecioConBrecha(producto.ganancia, brechaEfectiva);
-        const precioDolarBCV = costoConBrecha + gananciaConBrecha;
+        // A. Calcular el Precio de Venta Base (USD Real / USDT)
+        const precio_base_usd = costo_producto + ganancia_usd;
         
-        // Total en bolívares = precio dólar BCV * tasa BCV
-        const totalBolivares = precioDolarBCV * b;
+        // B. Calcular el valor real en Bolívares (Lo que el negocio necesita recibir)
+        let precio_total_bs = precio_base_usd * tasa_usdt;
+        
+        // C. Calcular el Precio de Venta Indexado a BCV
+        let precio_venta_bcv_usd = precio_total_bs / tasa_bcv;
+        
+        // D. Validación de Brecha Mínima (Protección del margen)
+        let brecha_real = (tasa_usdt / tasa_bcv) - 1;
+        let usaBrechaMinima = false;
+        
+        if (brecha_real < BRECHA_MINIMA && brecha_real > 0) {
+            // Forzar brecha mínima del 30%
+            const tasa_usdt_forzada = tasa_bcv * (1 + BRECHA_MINIMA);
+            precio_total_bs = precio_base_usd * tasa_usdt_forzada;
+            precio_venta_bcv_usd = precio_total_bs / tasa_bcv;
+            usaBrechaMinima = true;
+        }
+        
+        // E. Redondeo a 2 decimales para evitar discrepancias
+        const total_bolivares = Math.round(precio_total_bs * 100) / 100;
+        const precio_dolar_bcv = Math.round(precio_venta_bcv_usd * 100) / 100;
+        const precio_oferta_usdt = Math.round(precio_base_usd * 100) / 100;
         
         return {
-            brechaReal: brechaReal,
-            brechaEfectiva: brechaEfectiva,
-            precioOfertaBinance: precioOfertaBinance,
-            precioDolarBCV: precioDolarBCV,
-            totalBolivares: totalBolivares,
-            usaBrechaMinima: brechaEfectiva === BRECHA_MINIMA && brechaReal < BRECHA_MINIMA
+            totalBolivares: total_bolivares,           // Precio en Bs (cobro en Punto de Venta)
+            precioDolarBCV: precio_dolar_bcv,          // Precio en USD a tasa BCV (pago en efectivo USD)
+            precioOfertaUSDT: precio_oferta_usdt,      // Oferta en USDT (flujo interno/Caja)
+            brechaReal: brecha_real,
+            usaBrechaMinima: usaBrechaMinima
         };
     }
-    
+
+    // ============================================================
+    // FUNCIONES DE TASAS Y BRECHA
+    // ============================================================
+    function getBrechaEfectiva(b, u) {
+        const brechaCalculada = (parseFloat(u) / parseFloat(b)) - 1;
+        return brechaCalculada < BRECHA_MINIMA && brechaCalculada > 0 ? BRECHA_MINIMA : brechaCalculada;
+    }
+
+    function actualizarUIBrecha(b, u) {
+        const brechaReal = ((parseFloat(u)/parseFloat(b)) - 1) * 100;
+        const brechaEfectiva = getBrechaEfectiva(b, u) * 100;
+        const displayBrecha = document.getElementById('displayBrecha');
+        const advertenciaBox = document.getElementById('brechaAdvertencia');
+        
+        if (brechaReal < 30 && brechaReal > 0) {
+            displayBrecha.innerHTML = `${brechaReal.toFixed(2)}% <span style="color:#ef4444; font-size:0.7rem;">→ Usando ${brechaEfectiva.toFixed(2)}% (mínimo)</span>`;
+            advertenciaBox.style.display = 'block';
+        } else {
+            displayBrecha.innerHTML = `${brechaReal.toFixed(2)}%`;
+            advertenciaBox.style.display = 'none';
+        }
+    }
+
+    function confirmarTasas() {
+        const b = document.getElementById('tasaBCV').value;
+        const u = document.getElementById('tasaUSDT').value;
+        
+        if(!b || !u || parseFloat(b) <= 0 || parseFloat(u) <= 0) {
+            toast("❌ Tasas inválidas");
+            return;
+        }
+        
+        const brechaReal = (parseFloat(u)/parseFloat(b)) - 1;
+        
+        if (brechaReal < BRECHA_MINIMA && brechaReal > 0) {
+            toast(`⚠️ Brecha del ${(brechaReal*100).toFixed(2)}% es menor al 30%. Se usará ${BRECHA_MINIMA*100}% como mínimo.`);
+            const alertaDiv = document.getElementById('alertMinBrecha');
+            alertaDiv.classList.add('show');
+            setTimeout(() => alertaDiv.classList.remove('show'), 3000);
+        }
+
+        localStorage.setItem('tasaBCV_confirmada', b);
+        localStorage.setItem('tasaUSDT_confirmada', u);
+        
+        actualizarUIBrecha(b, u);
+        renderizar();
+        toast("🚀 Precios Actualizados con Lógica Protegida");
+    }
+
     function cargarTasasIniciales() {
         const b = localStorage.getItem('tasaBCV_confirmada') || "47.80";
         const u = localStorage.getItem('tasaUSDT_confirmada') || "64.00";
@@ -184,64 +229,32 @@
         actualizarUIBrecha(b, u);
     }
 
-    function toast(m) { 
-        const t = document.getElementById('toast'); 
-        t.innerText = m; 
-        t.classList.add('show'); 
-        setTimeout(()=>t.classList.remove('show'), 2000); 
-    }
-
-    function actualizarUIBrecha(b, u) {
-        const brechaReal = ((parseFloat(u)/parseFloat(b)) - 1) * 100;
-        const brechaEfectiva = getBrechaEfectiva(b, u) * 100;
-        
-        if (brechaReal < 30 && brechaReal > 0) {
-            document.getElementById('displayBrecha').innerHTML = `${brechaReal.toFixed(2)}% <span style="color:#ef4444; font-size:0.7rem;">→ Usando ${brechaEfectiva.toFixed(2)}% (mínimo)</span>`;
-        } else {
-            document.getElementById('displayBrecha').innerHTML = `${brechaReal.toFixed(2)}%`;
-        }
-    }
-
-    function confirmarTasas() {
-        const b = document.getElementById('tasaBCV').value;
-        const u = document.getElementById('tasaUSDT').value;
-        
-        if(!b || !u || b <= 0 || u <= 0) return toast("❌ Tasas inválidas");
-        
-        const brechaReal = (parseFloat(u)/parseFloat(b)) - 1;
-        
-        // Validación y alerta si la brecha es menor al 30%
-        if (brechaReal < BRECHA_MINIMA && brechaReal > 0) {
-            toast(`⚠️ Brecha del ${(brechaReal*100).toFixed(2)}% es menor al 30%. Se usará ${BRECHA_MINIMA*100}% como mínimo.`);
-        }
-
-        localStorage.setItem('tasaBCV_confirmada', b);
-        localStorage.setItem('tasaUSDT_confirmada', u);
-        
-        actualizarUIBrecha(b, u);
-        renderizar();
-        toast("🚀 Precios Actualizados");
-    }
-
+    // ============================================================
+    // CRUD DE PRODUCTOS
+    // ============================================================
     function guardarProducto() {
         const id = document.getElementById('editId').value;
         const n = document.getElementById('pNombre').value;
         const c = parseFloat(document.getElementById('pCosto').value);
         let g = parseFloat(document.getElementById('pGanancia').value);
 
-        if(!n || isNaN(c)) return toast("❌ Error en datos");
+        if(!n || isNaN(c)) {
+            toast("❌ Nombre y costo son requeridos");
+            return;
+        }
         if(isNaN(g)) g = 0;
 
         if(id) {
             const i = productos.findIndex(p => p.id == id);
             productos[i] = { id: parseInt(id), nombre: n, costo: c, ganancia: g };
+            toast("✏️ Producto actualizado");
         } else {
             productos.push({ id: Date.now(), nombre: n, costo: c, ganancia: g });
+            toast("✅ Producto guardado");
         }
         
         limpiarForm();
         save();
-        toast("✅ Guardado");
     }
 
     function editar(id) {
@@ -254,40 +267,12 @@
         window.scrollTo({top: 0, behavior: 'smooth'});
     }
 
-    function borrar(id) { if(confirm("¿Eliminar producto?")) { productos = productos.filter(p => p.id !== id); save(); } }
-
-    function copiarPortapapeles(nombre, precioBinance, precioDolar, precioBs, avisoMinimo) {
-        let texto = `🛍️ *${nombre}*\n\n💵 *Precio:* $${precioDolar} (BCV)\n🇻🇪 *Total Bs:* ${precioBs}\n\n🔸 *OFERTA BINANCE:* ${precioBinance} USDT`;
-        if (avisoMinimo) {
-            texto += `\n⚠️ *Aplicada brecha mínima del 30%*`;
-        }
-        texto += `\n\n📍 *Ubicación:* Carrera 13 esquina calle 18, Yaritagua.\n📞 *Contacto:* 0412-5278450\n\n_Válido por 12 horas. Consulta existencias._`;
-        navigator.clipboard.writeText(texto).then(() => toast("📋 Copiado"));
-    }
-
-    function copiarCatalogo() {
-        if(productos.length === 0) return toast("⚠️ No hay productos");
-        
-        let texto = `📦 *CATÁLOGO DE PRODUCTOS - ${new Date().toLocaleDateString()}*\n`;
-        texto += `━━━━━━━━━━━━━━━━━━\n\n`;
-
-        productos.forEach(p => {
-            const precios = getPreciosProducto(p);
-            const precioVentaBS = precios.totalBolivares.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-            
-            texto += `⭐ *${p.nombre}*\n`;
-            texto += `🔹 Pago Bs: ${precioVentaBS} Bs\n`;
-            texto += `🔸 Oferta Binance: ${precios.precioOfertaBinance.toFixed(2)} USDT`;
-            if (precios.usaBrechaMinima) texto += ` (brecha mínima 30%)`;
-            texto += `\n──────────────────\n`;
-        });
-
-        texto += `\n📍 *Dirección:* Yaritagua-Yaracuy, Carrera 13 esq. Calle 18, Padre Torres.\n`;
-        texto += `📞 *WhatsApp:* 04125278450\n\n`;
-        texto += `📦 *SERVICIOS:* Encomienda internacional, recibimos tus paquetes y te asesoramos en compras por internet.\n\n`;
-        texto += `⚠️ *NOTA:* Precios válidos por 12 horas.`;
-
-        navigator.clipboard.writeText(texto).then(() => toast("🚀 Catálogo copiado"));
+    function borrar(id) { 
+        if(confirm("¿Eliminar producto?")) { 
+            productos = productos.filter(p => p.id !== id); 
+            save();
+            toast("🗑️ Producto eliminado");
+        } 
     }
 
     function limpiarForm() { 
@@ -298,8 +283,68 @@
         document.getElementById('btnCancel').style.display = 'none';
     }
 
-    function save() { localStorage.setItem('inventario_v3', JSON.stringify(productos)); renderizar(); }
+    function save() { 
+        localStorage.setItem('inventario_v3', JSON.stringify(productos)); 
+        renderizar(); 
+    }
 
+    // ============================================================
+    // FUNCIONES DE COPIA (Texto para WhatsApp)
+    // ============================================================
+    function copiarPortapapeles(nombre, precioOfertaUSDT, precioDolar, precioBs, avisoMinimo) {
+        let texto = `🛍️ *${nombre}*\n\n`;
+        texto += `💵 *Precio en USD (BCV):* $${precioDolar}\n`;
+        texto += `🇻🇪 *Total en Bolívares:* ${precioBs} Bs\n\n`;
+        texto += `🔸 *OFERTA USDT:* ${precioOfertaUSDT} USDT\n`;
+        
+        if (avisoMinimo) {
+            texto += `⚠️ *Aplicada brecha mínima del 30%*\n`;
+        }
+        
+        texto += `\n📍 *Dirección:* Carrera 13 esquina calle 18, Yaritagua\n`;
+        texto += `📞 *Contacto:* 0412-5278450\n\n`;
+        texto += `⏰ *Válido por 12 horas.*`;
+        
+        navigator.clipboard.writeText(texto).then(() => toast("📋 Copiado al portapapeles"));
+    }
+
+    function copiarCatalogo() {
+        if(productos.length === 0) {
+            toast("⚠️ No hay productos para copiar");
+            return;
+        }
+        
+        const tasa_bcv = parseFloat(localStorage.getItem('tasaBCV_confirmada')) || 1;
+        
+        let texto = `📦 *CATÁLOGO DE PRODUCTOS* 📦\n`;
+        texto += `📅 *Fecha:* ${new Date().toLocaleDateString()}\n`;
+        texto += `💱 *Tasa BCV:* ${tasa_bcv.toFixed(2)} Bs\n`;
+        texto += `━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+        productos.forEach(p => {
+            const precios = getPreciosProducto(p);
+            const precioVentaBS = precios.totalBolivares.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            
+            texto += `⭐ *${p.nombre}*\n`;
+            texto += `   💵 BCV: $${precios.precioDolarBCV.toFixed(2)}\n`;
+            texto += `   🇻🇪 Bs: ${precioVentaBS}\n`;
+            texto += `   🔸 OFERTA USDT: ${precios.precioOfertaUSDT.toFixed(2)}\n`;
+            
+            if (precios.usaBrechaMinima) texto += `   ⚠️ *Brecha mínima 30%*\n`;
+            texto += `──────────────────────\n`;
+        });
+
+        texto += `\n📍 *Ubicación:* Yaritagua-Yaracuy, Carrera 13 esq. Calle 18\n`;
+        texto += `📞 *WhatsApp:* 0412-5278450\n\n`;
+        texto += `📦 *Servicios:* Encomienda internacional, recibimos tus paquetes y te asesoramos en compras por internet.\n\n`;
+        texto += `⏰ *Válido por 12 horas.*`;
+
+        navigator.clipboard.writeText(texto).then(() => toast("🚀 Catálogo copiado"));
+    }
+
+    // ============================================================
+    // FUNCIONES DE BÚSQUEDA
+    // ============================================================
     function filterProductsBySearch(products, term) {
         if (!term.trim()) return products;
         const lowerTerm = term.toLowerCase().trim();
@@ -348,23 +393,19 @@
         });
     }
 
+    // ============================================================
+    // RENDERIZADO DE PRODUCTOS
+    // ============================================================
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
     function renderizar() {
-        const b = parseFloat(localStorage.getItem('tasaBCV_confirmada')) || 1;
-        
-        let productosFiltrados = filterProductsBySearch(productos, searchTerm);
-        
+        const productosFiltrados = filterProductsBySearch(productos, searchTerm);
         const lista = document.getElementById('listaProductos');
-        
-        if (productosFiltrados.length === 0 && searchTerm.trim() !== '') {
-            lista.innerHTML = `
-                <div class="no-results">
-                    <span style="font-size: 3rem;">🔍</span><br>
-                    No se encontraron productos con "<strong>${escapeHtml(searchTerm)}</strong>"<br>
-                    <small style="font-size: 0.75rem;">Intenta con otro nombre</small>
-                </div>
-            `;
-            return;
-        }
         
         if (productos.length === 0) {
             lista.innerHTML = `
@@ -377,42 +418,49 @@
             return;
         }
         
+        if (productosFiltrados.length === 0 && searchTerm.trim() !== '') {
+            lista.innerHTML = `
+                <div class="no-results">
+                    <span style="font-size: 3rem;">🔍</span><br>
+                    No se encontraron productos con "<strong>${escapeHtml(searchTerm)}</strong>"<br>
+                    <small>Intenta con otro nombre</small>
+                </div>
+            `;
+            return;
+        }
+        
         lista.innerHTML = '';
 
         productosFiltrados.forEach(p => {
             const precios = getPreciosProducto(p);
             const precioVentaBS = precios.totalBolivares.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
             
-            const avisoMinimoHtml = precios.usaBrechaMinima ? '<span style="background:#fee2e2; color:#991b1b; font-size:0.6rem; padding:2px 6px; border-radius:10px; margin-left:6px;">Brecha mínima 30%</span>' : '';
+            const avisoMinimoHtml = precios.usaBrechaMinima ? 
+                '<span style="background:#fee2e2; color:#991b1b; font-size:0.6rem; padding:2px 6px; border-radius:10px; margin-left:6px;">Brecha mínima 30%</span>' : '';
             
             lista.innerHTML += `
                 <div class="product-item">
                     <div class="binance-badge">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M16.624 13.9202L13.231 17.3124L12.0006 18.5428L10.7702 17.3124L7.37722 13.9202L6.14675 12.6898L4.91628 13.9202L12.0006 21.0045L19.085 13.9202L17.8545 12.6898L16.624 13.9202Z"/><path d="M12.0006 2.99551L4.91628 10.0798L6.14675 11.3103L7.37722 10.0798L10.7702 6.68763L12.0006 5.45716L13.231 6.68763L16.624 10.0798L17.8545 11.3103L19.085 10.0798L12.0006 2.99551Z"/><path d="M7.37722 12L12.0006 7.37661L16.624 12L12.0006 16.6234L7.37722 12Z"/></svg>
-                        Oferta Binance
+                        Oferta USDT: ${precios.precioOfertaUSDT.toFixed(2)}
                     </div>
                     <div style="font-weight:700; font-size: 1.1rem; margin-bottom:4px">
                         ${escapeHtml(p.nombre)} ${avisoMinimoHtml}
                     </div>
-                    <div class="price-tag">$ ${precios.precioDolarBCV.toFixed(2)} <small style="font-size:0.7rem; color:#64748b">BCV</small></div>
-                    <div style="font-size:0.95rem; color:#1e293b; margin-top:2px">Total Bs: <b>${precioVentaBS}</b></div>
-                    <div class="binance-price"><span>Binance:</span><b>${precios.precioOfertaBinance.toFixed(2)} USDT</b></div>
+                    <div class="price-tag">$ ${precios.precioDolarBCV.toFixed(2)} <small style="font-size:0.7rem; color:#64748b">(Tasa BCV)</small></div>
+                    <div style="font-size:0.95rem; color:#1e293b; margin-top:2px">🇻🇪 Total Bs: <b>${precioVentaBS}</b></div>
                     <div class="actions">
-                        <button class="btn-sm" style="background:var(--copy); color:white" onclick="copiarPortapapeles('${escapeHtml(p.nombre).replace(/'/g, "\\'")}', '${precios.precioOfertaBinance.toFixed(2)}', '${precios.precioDolarBCV.toFixed(2)}', '${precioVentaBS}', ${precios.usaBrechaMinima})">📋 Copiar</button>
-                        <button class="btn-sm" style="background:#e2e8f0" onclick="editar(${p.id})">Editar</button>
-                        <button class="btn-sm" style="background:#fee2e2; color:red" onclick="borrar(${p.id})">Borrar</button>
+                        <button class="btn-sm" style="background:var(--copy); color:white" onclick="copiarPortapapeles('${escapeHtml(p.nombre).replace(/'/g, "\\'")}', '${precios.precioOfertaUSDT.toFixed(2)}', '${precios.precioDolarBCV.toFixed(2)}', '${precioVentaBS}', ${precios.usaBrechaMinima})">📋 Copiar</button>
+                        <button class="btn-sm" style="background:#e2e8f0" onclick="editar(${p.id})">✏️ Editar</button>
+                        <button class="btn-sm" style="background:#fee2e2; color:red" onclick="borrar(${p.id})">🗑️ Borrar</button>
                     </div>
                 </div>`;
         });
     }
 
-    function escapeHtml(text) {
-        if (!text) return '';
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
+    // ============================================================
+    // RESPALDOS
+    // ============================================================
     function descargarBackup() {
         const data = JSON.stringify(productos);
         const blob = new Blob([data], {type: 'application/json'});
@@ -422,6 +470,7 @@
         a.download = `respaldo_precios_${new Date().toLocaleDateString()}.json`;
         a.click();
         URL.revokeObjectURL(url);
+        toast("📥 Respaldo descargado");
     }
 
     function subirBackup(event) {
@@ -446,6 +495,16 @@
         reader.readAsText(file);
     }
 
+    function toast(m) { 
+        const t = document.getElementById('toast'); 
+        t.innerText = m; 
+        t.classList.add('show'); 
+        setTimeout(()=>t.classList.remove('show'), 2000); 
+    }
+
+    // ============================================================
+    // INICIALIZACIÓN
+    // ============================================================
     cargarTasasIniciales();
     setupSearch();
     renderizar();
